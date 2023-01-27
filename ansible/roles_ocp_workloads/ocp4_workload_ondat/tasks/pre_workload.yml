@@ -1,0 +1,54 @@
+---
+# Implement your Pre Workload deployment tasks here
+# -------------------------------------------------
+
+- name: Gather aws security group info
+  amazon.aws.ec2_group_info:
+    filters:
+      "tag:Name": "*worker*"
+    region: "{{ aws_region }}"
+    aws_access_key: "{{ aws_access_key_id }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+  register: sg_info
+
+- name: Add aws security group rules for {{ ocp4_workload_ondat_namespace }} operator
+  amazon.aws.ec2_group:
+    name: "{{ sg_info.security_groups[0].group_name }}"
+    description: "Edited by Ansible installer"
+    purge_rules: false
+    state: present
+    aws_access_key: "{{ aws_access_key_id }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+    region: "{{ aws_region }}"
+    rules:
+      - proto: tcp
+        ports: 17001 - 17020
+        rule_desc: "{{ ocp4_workload_ondat_namespace }}"
+        group_id: "{{ sg_info.security_groups[0].group_id }}"
+      - proto: udp
+        ports: 17002
+        rule_desc: "{{ ocp4_workload_onat_namespace }}"
+        group_id: "{{ sg_info.security_groups[0].group_id }}"
+
+# Leave these as the last tasks in the playbook
+# ---------------------------------------------
+
+# For deployment onto a dedicated cluster (as part of the
+# cluster deployment) set workload_shared_deployment to False
+# This is the default so it does not have to be set explicitely
+- name: pre_workload tasks complete
+  debug:
+    msg: "Pre-Workload tasks completed successfully."
+  when:
+  - not silent|bool
+  - not workload_shared_deployment|default(False)
+
+# For RHPDS deployment (onto a shared cluster) set
+# workload_shared_deployment to True
+# (in the deploy script or AgnosticV configuration)
+- name: pre_workload tasks complete
+  debug:
+    msg: "Pre-Software checks completed successfully"
+  when:
+  - not silent|bool
+  - workload_shared_deployment|default(False)

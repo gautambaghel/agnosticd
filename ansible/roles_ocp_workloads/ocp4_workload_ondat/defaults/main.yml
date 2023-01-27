@@ -1,0 +1,7 @@
+dddd--
+become_override: false
+ocp_username: wkulhane-redhat.com
+silent: false
+
+ocp4_workload_ondat_namespace: ondat
+
