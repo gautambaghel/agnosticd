@@ -2,6 +2,40 @@
 # Implement your Pre Workload deployment tasks here
 # -------------------------------------------------
 
+- name: Get instance info
+  amazon.aws.ec2_instance_info:
+    aws_access_key: "{{ aws_access_key_id }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+    region: "{{ aws_region }}"
+  register: instance_info
+
+- set_fact:
+    instance_id: "{{ instance_info.instances[0].instance_id }}"
+
+- name: print instance id
+  debug:
+    msg: "{{ instance_id }}"
+
+- name: Get EC2 instance info
+  ec2_instance_info:
+    aws_access_key: "{{ aws_access_key_id }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+    region: "{{ aws_region }}"
+    instance_ids: "{{ instance_id }}"
+  register: ec2_instance
+
+- name: Display ec2_instance info
+  debug:
+    var: ec2_instance
+
+- name: Store private IP in variable
+  set_fact:
+    private_ip: "{{ ec2_instance.instances[0].private_ip_address }}"
+
+- name: Display private IP
+  debug:
+    var: private_ip
+
 - name: Gather aws security group info
   amazon.aws.ec2_group_info:
     filters:
@@ -11,24 +45,83 @@
     aws_secret_key: "{{ aws_secret_access_key }}"
   register: sg_info
 
-- name: Add aws security group rules for {{ ocp4_workload_ondat_namespace }} operator
+
+- name: Extract security group information
+  set_fact:
+    sg_info_group_name: "{{ sg_info.security_groups[0].group_name }}"
+    sg_info_group_id: "{{ sg_info.security_groups[0].group_id }}"
+
+- debug:
+    msg: "Group ID is {{ sg_info_group_id }} and group name is {{ sg_info_group_name }}"
+
+- name: Authorize security group ingress for required ondat ports
   amazon.aws.ec2_group:
-    name: "{{ sg_info.security_groups[0].group_name }}"
-    description: "Edited by Ansible installer"
-    purge_rules: false
+    name: "{{ sg_info_group_name }}"
     state: present
+    purge_rules: false
+    description: "Edited by Ansible installer"
+    region: "{{ aws_region }}"
     aws_access_key: "{{ aws_access_key_id }}"
     aws_secret_key: "{{ aws_secret_access_key }}"
-    region: "{{ aws_region }}"
     rules:
       - proto: tcp
-        ports: 17001 - 17020
+        from_port: 5701
+        to_port: 5701
+        cidr_ip: "{{ private_ip }}/32"
         rule_desc: "{{ ocp4_workload_ondat_namespace }}"
-        group_id: "{{ sg_info.security_groups[0].group_id }}"
+        group_id: "{{ sg_info_group_id }}"
+      - proto: tcp
+        from_port: 5703
+        to_port: 5703
+        cidr_ip: "{{ private_ip }}/32"
+        rule_desc: "{{ ocp4_workload_ondat_namespace }}"
+        group_id: "{{ sg_info_group_id }}"
+      - proto: tcp
+        from_port: 5704
+        to_port: 5704
+        cidr_ip: "{{ private_ip }}/32"
+        rule_desc: "{{ ocp4_workload_ondat_namespace }}"
+        group_id: "{{ sg_info_group_id }}"
+      - proto: tcp
+        from_port: 5705
+        to_port: 5705
+        cidr_ip: "{{ private_ip }}/32"
+        rule_desc: "{{ ocp4_workload_ondat_namespace}}"
+        group_id: "{{ sg_info_group_id }}"
+      - proto: tcp
+        from_port: 5710
+        to_port: 5710
+        cidr_ip: "{{ private_ip }}/32"
+        rule_desc: "{{ ocp4_workload_ondat_namespace }}"
+        group_id: "{{ sg_info_group_id }}"
+      - proto: tcp
+        from_port: 5711
+        to_port: 5711
+        cidr_ip: "{{ private_ip }}/32"
+        rule_desc: "{{ ocp4_workload_ondat_namespace }}"
+        group_id: "{{ sg_info_group_id }}"
+      - proto: tcp
+        from_port: 2378
+        to_port: 2378
+        cidr_ip: "{{ private_ip }}/32"
+        rule_desc: "{{ ocp4_workload_ondat_namespace }}"
+        group_id: "{{ sg_info_group_id }}"
+      - proto: tcp
+        from_port: 2380
+        to_port: 2380
+        cidr_ip: "{{ private_ip }}/32"
+        rule_desc: "{{ ocp4_workload_ondat_namespace }}"
+        group_id: "{{ sg_info_group_id }}"
+      - proto: tcp
+        from_port: 25705
+        to_port: 25960
+        cidr_ip: "{{ private_ip }}/32"
+        rule_desc: "{{ ocp4_workload_ondat_namespace  }}"
+        group_id: "{{ sg_info_group_id }}"
       - proto: udp
-        ports: 17002
-        rule_desc: "{{ ocp4_workload_onat_namespace }}"
-        group_id: "{{ sg_info.security_groups[0].group_id }}"
+        from_port: 5711
+        to_port: 5711
+        cidr_ip: "{{ private_ip }}/32"
 
 # Leave these as the last tasks in the playbook
 # ---------------------------------------------
